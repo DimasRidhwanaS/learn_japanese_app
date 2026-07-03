@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azershal Japanese — Business Fluency in 6 Months</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">ア</div>
+      <div>
+        <div class="brand-title">Azershal JP</div>
+        <div class="brand-sub">Business fluency · 6 months</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" data-route="dashboard">📊 Dashboard</button>
+      <button class="nav-btn" data-route="curriculum">📅 Curriculum</button>
+      <button class="nav-btn" data-route="review">🔁 Review <span class="badge" id="dueBadge">0</span></button>
+      <button class="nav-btn" data-route="flashcards">🎴 Flashcards</button>
+      <button class="nav-btn" data-route="word">⭐ Word of Day</button>
+      <button class="nav-btn" data-route="kana">あ Kana</button>
+      <button class="nav-btn" data-route="grammar">📐 Grammar</button>
+      <button class="nav-btn" data-route="keigo">🙇 Keigo</button>
+      <button class="nav-btn" data-route="quiz">✏️ Quiz</button>
+      <button class="nav-btn" data-route="export">📦 Anki Export</button>
+      <button class="nav-btn" data-route="progress">📈 Progress</button>
+    </nav>
+    <div class="streak-box">
+      <div>🔥 Streak: <b id="streakNum">0</b> days</div>
+      <div>🎴 Known: <b id="knownNum">0</b> / <span id="totalNum">0</span></div>
+    </div>
+  </aside>
+
+  <main class="content" id="content"></main>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
