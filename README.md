@@ -58,3 +58,19 @@ All progress saves to your browser's localStorage. To move machines, use **Progr
 
 ## QA
 Verified: JS syntax, content integrity (0 missing fields), SRS math (sane intervals, bounded ease), 11/11 routes render, all inline interactions (flip, grade, quiz, kana, toggle, export, reset, persistence) pass end-to-end in real browser script mode.
+## 📱 Install as a phone app (PWA) + notifications
+This is a Progressive Web App — installable on Android/iOS, works offline, sends daily reminders.
+
+### Install
+1. Open the live URL in your phone browser (Chrome/Edge/Safari).
+2. **Android (Chrome/Edge):** tap ⋮ menu → **Install app** / **Add to Home screen**.
+   **iOS (Safari):** Share → **Add to Home Screen**.
+3. It launches fullscreen with its own icon — review cards offline, no signal needed.
+
+### Daily study reminders
+Open the **📱 App & Alerts** tab → **Enable daily reminders** → set a time → **Test notification**.
+- Android Chrome uses **Periodic Background Sync** for true background reminders (~daily).
+- If unsupported, reminders fire at your set time while the app is open.
+- Long-press the home-screen icon for shortcuts: **Review** / **Word of the Day**.
+
+> The PWA auto-updates whenever you reopen it. Progress is stored on-device.

@@ -92,8 +92,149 @@ function refreshBadges(){
 
 document.addEventListener("DOMContentLoaded",()=>{
   document.querySelectorAll(".nav-btn").forEach(b=>b.addEventListener("click",()=>go(b.dataset.route)));
-  go("dashboard");
+  initPWA();
+  const h=location.hash.replace("#",""); if(h&&routes[h]) go(h); else go("dashboard");
+  window.addEventListener("hashchange",()=>{ const h=location.hash.replace("#",""); if(h&&routes[h]) go(h); });
 });
+
+// ---------- PWA: install, service worker, reminders ----------
+let deferredPrompt=null;
+function initPWA(){
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("./sw.js").then(reg=>{
+      window.__sw=reg;
+      // if reminders were enabled previously, re-register periodic sync after SW ready
+      if(state.reminders && state.reminders.enabled) registerPeriodic();
+    }).catch(()=>{});
+    navigator.serviceWorker.addEventListener("message",e=>{
+      if(e.data && e.data.route && routes[e.data.route]) go(e.data.route);
+    });
+  }
+  window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; updateInstallState(); });
+  window.addEventListener("appinstalled",()=>{ deferredPrompt=null; updateInstallState(); });
+}
+async function installApp(){
+  if(!deferredPrompt){ alert("Install via your browser menu: 'Add to Home screen' / 'Install app'."); return; }
+  deferredPrompt.prompt();
+  const ch=await deferredPrompt.userChoice; deferredPrompt=null; updateInstallState();
+}
+function updateInstallState(){
+  const el=document.getElementById("installState"); if(!el) return;
+  const installed = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+  el.innerHTML = installed ? "✅ Installed — running as an app." :
+    deferredPrompt ? "⬇️ Ready to install." : "⚙️ Open in browser menu → 'Install app' / 'Add to Home screen'.";
+}
+function reminderState(){ return state.reminders = state.reminders || {enabled:false, time:"09:00"}; }
+async function enableReminders(){
+  if(!("Notification" in window)){ alert("Notifications not supported on this device."); return; }
+  let perm=Notification.permission;
+  if(perm==="default") perm=await Notification.requestPermission();
+  if(perm!=="granted"){ alert("Notifications blocked. Enable in browser settings to get daily reminders."); return; }
+  reminderState().enabled=true; save();
+  await registerPeriodic();
+  // immediate confirmation + a local in-app scheduled nudge (works while app open)
+  scheduleLocalNudge();
+  render("app");
+}
+function disableReminders(){ reminderState().enabled=false; save(); unregisterPeriodic(); render("app"); }
+async function registerPeriodic(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    if("periodicSync" in reg){
+      const status = await navigator.permissions.query({name:"periodic-background-sync"}).catch(()=>({state:"denied"}));
+      if(status.state==="granted"){
+        await reg.periodicSync.register("daily-reminder",{minInterval:24*60*60*1000});
+        return true;
+      }
+    }
+  }catch(e){}
+  return false; // periodic sync not supported → fallback to local nudge + manual
+}
+async function unregisterPeriodic(){ try{ const reg=await navigator.serviceWorker.ready; if("periodicSync" in reg) await reg.periodicSync.unregister("daily-reminder"); }catch(e){} }
+let nudgeTimer=null;
+function scheduleLocalNudge(){
+  if(nudgeTimer) clearTimeout(nudgeTimer);
+  if(!reminderState().enabled) return;
+  const [hh,mm]=reminderState().time.split(":").map(Number);
+  const now=new Date(); const t=new Date(); t.setHours(hh,mm,0,0);
+  if(t<=now) t.setDate(t.getDate()+1);
+  const ms=t-now;
+  nudgeTimer=setTimeout(()=>{ showLocalNudge(); scheduleLocalNudge(); }, ms);
+  window.__nudgeAt=t.toISOString();
+}
+function showLocalNudge(){
+  try{ navigator.serviceWorker.ready.then(reg=>reg.showNotification("Azershal JP 🔥",{
+    body:"Daily study reminder — review due cards & today's word.", tag:"azjp-daily",
+    icon:"icons/icon-192.png", badge:"icons/icon-192.png", vibrate:[80,40,80], data:{url:"./index.html"}
+  })); }catch(e){}
+}
+async function testNotification(){
+  if(!("Notification" in window)){ alert("Not supported."); return; }
+  if(Notification.permission!=="granted"){ const p=await Notification.requestPermission(); if(p!=="granted"){alert("Permission denied.");return;} }
+  showLocalNudge();
+}
+function setReminderTime(v){ reminderState().time=v; save(); if(reminderState().enabled) scheduleLocalNudge(); }
+
+routes.app = ()=>{
+  const r=reminderState();
+  const installed = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+  let pSync="unknown";
+  return `
+  <h1>📱 App & Alerts</h1>
+  <p class="sub">Install this as an Android/iOS app (offline, home-screen icon) and get daily study notifications.</p>
+
+  <h2>Install</h2>
+  <div class="card">
+    <div id="installState"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="installApp()">${installed?'✅ Installed':'⬇️ Install app'}</button>
+      <button class="btn sec sm" onclick="updateInstallState()">Refresh status</button>
+    </div>
+    <div class="hint">Android (Chrome/Edge): tap ⋮ menu → <b>Install app</b> / <b>Add to Home screen</b>. iOS (Safari): Share → <b>Add to Home Screen</b>. After install it opens fullscreen and works offline.</div>
+  </div>
+
+  <h2>Daily study reminders</h2>
+  <div class="card">
+    <div style="margin-bottom:12px"><b>Status:</b> ${r.enabled?'✅ On — '+r.time:'⬛ Off'}</div>
+    <div class="btn-row">
+      ${r.enabled
+        ? `<button class="btn sec" onclick="disableReminders()">Turn off</button>`
+        : `<button class="btn" onclick="enableReminders()">Enable daily reminders</button>`}
+      <button class="btn sec" onclick="testNotification()">🔔 Test notification</button>
+    </div>
+    <div style="margin-top:14px">
+      <label>Reminder time: <input type="time" id="rTime" value="${r.time}" onchange="setReminderTime(this.value)"></label>
+    </div>
+    <div class="hint">On Android (Chrome) this uses <b>Periodic Background Sync</b> for true background notifications ~daily. If unsupported, reminders fire while the app is open at your set time. You can also test anytime.</div>
+    <div class="hint" id="pSyncInfo"></div>
+  </div>
+
+  <h2>What you get</h2>
+  <div class="card">
+    <ul style="margin:0 0 0 18px;line-height:1.9;font-size:14px">
+      <li>📲 Home-screen icon, fullscreen, launches like a native app</li>
+      <li>✈️ Fully offline — review cards on the train, no signal needed</li>
+      <li>🔔 Daily reminders to keep your streak</li>
+      <li>⚡ Long-press the icon for shortcuts (Review / Word of Day)</li>
+      <li>💾 Progress saved on-device (localStorage)</li>
+    </ul>
+  </div>
+
+  <h2>Want a real <code>.apk</code> file?</h2>
+  <div class="card">
+    <div class="hint" style="font-size:14px">The PWA above is the recommended path — install in seconds, auto-updates, no sideloading. A native <code>.apk</code> (via a TWA wrapper) is possible but needs a build toolchain (JDK + Android SDK + bubblewrap) and signing — heavier and I can't run it in this sandbox. If you specifically need an <code>.apk</code>, say so and I'll give you the exact steps; otherwise install the PWA from the link.</div>
+  </div>`;
+};
+function hook_app(){ updateInstallState(); checkPeriodicSupport(); }
+async function checkPeriodicSupport(){
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const ok="periodicSync" in reg;
+    const perm=ok? await navigator.permissions.query({name:"periodic-background-sync"}).catch(()=>({state:"n/a"})) : {state:"n/a"};
+    const el=document.getElementById("pSyncInfo");
+    if(el) el.textContent="Periodic Background Sync: "+(ok?"supported (permission: "+perm.state+")":"not supported on this browser — reminders fire while app is open");
+  }catch(e){}
+}
 
 // ---------- VIEW: DASHBOARD ----------
 routes.dashboard = ()=> {

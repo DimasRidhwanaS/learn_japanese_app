@@ -1,0 +1,24 @@
+{
+  "name": "Azershal Japanese — Business Fluency in 6 Months",
+  "short_name": "Azershal JP",
+  "description": "SRS flashcards, keigo, grammar & a 26-week business-Japanese curriculum. Works offline.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone","minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "categories": ["education","productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-mask-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Review due cards", "short_name": "Review", "url": "./index.html#review", "icons": [{"src":"icons/icon-192.png","sizes":"192x192"}] },
+    { "name": "Word of the Day", "short_name": "Word", "url": "./index.html#word", "icons": [{"src":"icons/icon-192.png","sizes":"192x192"}] }
+  ]
+}
