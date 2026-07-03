@@ -312,7 +312,7 @@ const PHRASES = {
     {jp:"以上、よろしくお願いいたします。",en:"That's all — thank you. (standard end)"},
     {jp:"ご指定の方法で進めさせていただきます。",en:"I will proceed as you specified."},
     {jp:"社内で確認のうえ、改めてご連絡いたします。",en:"I'll check internally and get back to you."},
-    {jp:"お見積もりを发送いたします。",en:"I will send the quote."}
+    {jp:"お見積もりを送信いたします。",en:"I will send the quote."}
   ],
   meeting:[
     {jp:"本日はお時間をいただき、ありがとうございます。",en:"Thank you for your time today. (opening)"},
@@ -330,7 +330,7 @@ const PHRASES = {
     {jp:"次回は来週の水曜にいたしました。",en:"The next meeting is set for next Wednesday."},
     {jp:"本日はありがとうございました。",en:"Thank you for today. (closing)"},
     {jp:"今後ともよろしくお願いいたします。",en:"We look forward to your continued cooperation."},
-    {jp:"宿題事項は二つです。",en:"There are two action items to follow up."},
+    {jp:"持ち帰り事項は二つです。",en:"There are two action items to follow up."},
     {jp:"ここまでは異論ないですね。",en:"No objections so far, right?"},
     {jp:"時間が来ましたので、終了いたします。",en:"Time is up, so we'll close."},
     {jp:"録画・録音してもよろしいですか。",en:"May I record this?"},

@@ -20,7 +20,7 @@ function fresh(){
   };
 }
 function migrate(s){ if(!s.cards) s.cards={}; if(!s.studied) s.studied=[]; if(!s.weekDone) s.weekDone={}; if(!s.quizScores) s.quizScores=[]; if(!s.newPerDay) s.newPerDay=10; return s; }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed:",e.message); } }
 
 // ---------- TIME HELPERS (deterministic; no Date.now in workflows but fine here) ----------
 function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -559,9 +559,13 @@ function startQuiz(){
   else D.PHRASES[quizBank].forEach(p=>pool.push({q:p.jp,a:p.en}));
   // build 10
   const shuffled=shuffle(pool).slice(0,Math.min(10,pool.length));
-  // make 4 options
-  const allAns=pool.map(p=>p.a);
-  quiz=shuffled.map(p=>{ const opts=shuffle([p.a,...shuffle(allAns.filter(a=>a!==p.a)).slice(0,3)]); return {...p,opts}; });
+  // make 4 unique options (dedup distractors so no identical buttons)
+  const allAns=[...new Set(pool.map(p=>p.a))];
+  quiz=shuffled.map(p=>{
+    const distractors=shuffle(allAns.filter(a=>a!==p.a)).slice(0,3);
+    const opts=shuffle([p.a,...distractors]);
+    return {...p,opts};
+  });
   qi=0; quizScore=0; showQ();
 }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
