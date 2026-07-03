@@ -103,8 +103,22 @@ function initPWA(){
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("./sw.js").then(reg=>{
       window.__sw=reg;
-      // if reminders were enabled previously, re-register periodic sync after SW ready
       if(state.reminders && state.reminders.enabled) registerPeriodic();
+      // detect a new version being downloaded
+      reg.addEventListener("updatefound",()=>{
+        const nw=reg.installing;
+        if(!nw) return;
+        nw.addEventListener("statechange",()=>{
+          if(nw.state==="installed" && navigator.serviceWorker.controller) showUpdateBanner();
+        });
+      });
+      // when the new SW takes over, force a reload once so caches refresh
+      let reloaded=false;
+      navigator.serviceWorker.addEventListener("controllerchange",()=>{
+        if(!reloaded){ reloaded=true; location.reload(); }
+      });
+      // check for updates on each open (browser also auto-checks ~daily)
+      reg.update().catch(()=>{});
     }).catch(()=>{});
     navigator.serviceWorker.addEventListener("message",e=>{
       if(e.data && e.data.route && routes[e.data.route]) go(e.data.route);
@@ -113,6 +127,17 @@ function initPWA(){
   window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; updateInstallState(); });
   window.addEventListener("appinstalled",()=>{ deferredPrompt=null; updateInstallState(); });
 }
+function showUpdateBanner(){
+  let b=document.getElementById("updateBanner");
+  if(!b){
+    b=document.createElement("div"); b.id="updateBanner";
+    b.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#4f9cf9;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:9999;font-size:14px;box-shadow:0 -2px 10px rgba(0,0,0,.4)";
+    b.innerHTML='<span>🔄 New version ready.</span><button class="btn sm" style="background:#fff;color:#4f9cf9">Reload</button>';
+    b.querySelector("button").onclick=()=>location.reload();
+    document.body.appendChild(b);
+  }
+}
+async function checkForUpdates(){ try{ const reg=await navigator.serviceWorker.ready; await reg.update(); }catch(e){} }
 async function installApp(){
   if(!deferredPrompt){ alert("Install via your browser menu: 'Add to Home screen' / 'Install app'."); return; }
   deferredPrompt.prompt();
@@ -201,6 +226,7 @@ routes.app = ()=>{
         ? `<button class="btn sec" onclick="disableReminders()">Turn off</button>`
         : `<button class="btn" onclick="enableReminders()">Enable daily reminders</button>`}
       <button class="btn sec" onclick="testNotification()">🔔 Test notification</button>
+      <button class="btn sec" onclick="checkForUpdates()">🔄 Check for updates</button>
     </div>
     <div style="margin-top:14px">
       <label>Reminder time: <input type="time" id="rTime" value="${r.time}" onchange="setReminderTime(this.value)"></label>
