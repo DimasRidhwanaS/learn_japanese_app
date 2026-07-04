@@ -105,6 +105,7 @@ function buildFuri(){
 }
 function autoFuri(text){
   if(text==null) return "";
+  if(window.furiRender) return window.furiRender(text); // per-kanji engine from furigana.js
   if(!state.furi) return esc(text);
   if(!FURI_KEYS) buildFuri();
   let out="", i=0;
@@ -124,7 +125,7 @@ function applyTheme(t){
   save(); updateToggleBtns();
 }
 function toggleTheme(){ applyTheme(state.theme==="light" ? "dark" : "light"); }
-function applyFuri(on){ state.furi=on; document.body.classList.toggle("furi-off",!on); save(); updateToggleBtns(); }
+function applyFuri(on){ state.furi=on; window.__furiOn=!!on; document.body.classList.toggle("furi-off",!on); save(); updateToggleBtns(); }
 function toggleFuri(){ applyFuri(!state.furi); }
 function updateToggleBtns(){
   const dark = state.theme!=="light";
