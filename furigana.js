@@ -812,20 +812,28 @@ function ensurePop(){
       .kj{cursor:pointer;border-bottom:1px dotted rgba(240,104,92,.45);border-radius:2px;transition:background .15s}
       .kj:hover{background:rgba(240,104,92,.16)}
       .kj:active{background:rgba(240,104,92,.28)}
-      #kjPop{position:fixed;z-index:9999;background:var(--panel,#181d27);color:var(--text,#eceef3);border:1px solid var(--border,#2c333f);border-radius:14px;padding:14px 16px 12px;box-shadow:0 14px 44px rgba(0,0,0,.55);max-width:min(80vw,280px);font-size:14px;display:none;line-height:1.45}
+      #kjPop{position:fixed;z-index:9999;background:var(--panel,#181d27);color:var(--text,#eceef3);border:1px solid var(--border,#2c333f);border-radius:14px;padding:12px 14px 10px;box-shadow:0 14px 44px rgba(0,0,0,.55);max-width:min(86vw,300px);font-size:14px;display:none;line-height:1.45}
       #kjPop.show{display:block;animation:kjIn .12s ease}
       @keyframes kjIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-      #kjPop .kj-big{font-size:36px;font-weight:800;line-height:1.1;margin:2px 0 10px}
-      #kjPop .kj-row{display:flex;gap:10px;margin:5px 0;align-items:baseline}
-      #kjPop .kj-lbl{color:var(--muted,#8a94a6);font-size:10px;text-transform:uppercase;letter-spacing:.07em;min-width:48px;font-weight:700}
-      #kjPop .kj-val{font-weight:600;word-break:break-word}
+      #kjPop .kj-top{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+      #kjPop .kj-big{font-size:40px;font-weight:800;line-height:1;flex-shrink:0}
+      #kjPop .kj-big-r{font-size:13px;color:var(--muted,#8a94a6);font-weight:600}
       #kjPop .kj-close{position:absolute;top:4px;right:8px;cursor:pointer;color:var(--muted,#8a94a6);font-size:18px;line-height:1;padding:6px}
+      #kjPop .kj-word{margin:2px 0 8px;padding-bottom:8px;border-bottom:1px solid var(--border-soft,#232a37);display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+      #kjPop .kj-word-w{font-size:17px;font-weight:700}
+      #kjPop .kj-word-r{color:var(--muted,#8a94a6);font-weight:500;font-size:13px}
+      #kjPop .kj-word-m{color:var(--text,#eceef3);font-weight:600;font-size:13px;margin-left:auto}
+      #kjPop .kj-kj-list{display:flex;flex-direction:column;gap:7px}
+      #kjPop .kj-kj-row{display:flex;align-items:baseline;gap:10px}
+      #kjPop .kj-kj-ch{font-size:20px;font-weight:700;min-width:26px}
+      #kjPop .kj-kj-r{font-size:12px;color:var(--muted,#8a94a6);min-width:40px;font-weight:600}
+      #kjPop .kj-kj-m{font-size:12px;color:var(--text-soft,#c5ccda);flex:1}
       @media(hover:none){ .kj{border-bottom:1px solid rgba(240,104,92,.3)} }
     `;
     document.head.appendChild(st);
   }
   popEl = document.createElement("div"); popEl.id = "kjPop";
-  popEl.innerHTML = '<span class="kj-close">×</span><div class="kj-big"></div><div class="kj-row"><span class="kj-lbl">読み</span><span class="kj-val kj-r"></span></div><div class="kj-row"><span class="kj-lbl">言葉</span><span class="kj-val kj-w"></span></div><div class="kj-row"><span class="kj-lbl">意味</span><span class="kj-val kj-m"></span></div>';
+  popEl.innerHTML = '<span class="kj-close">×</span><div class="kj-top"><span class="kj-big"></span><span class="kj-big-r"></span></div><div class="kj-word"><span class="kj-word-w"></span><span class="kj-word-r"></span><span class="kj-word-m"></span></div><div class="kj-kj-list"></div>';
   document.body.appendChild(popEl);
   popEl.querySelector(".kj-close").addEventListener("click", hidePop);
   return popEl;
@@ -833,11 +841,39 @@ function ensurePop(){
 function hidePop(){ if(popEl) popEl.classList.remove("show"); }
 function showPop(target){
   ensurePop();
-  const k = target.dataset.k || "", r = target.dataset.r || "", w = target.dataset.w || "", m = target.dataset.m || "";
+  const k = target.dataset.k || "", w = target.dataset.w || "", m = target.dataset.m || "";
+  const KM = window.KANJI_MEANING || {};
+  const segs = w ? (WORD_FURI[w] || []) : [];
+  const wordReading = segs.map(s=>s[1]).join("") || (target.dataset.r || "");
   popEl.querySelector(".kj-big").textContent = k;
-  popEl.querySelector(".kj-r").textContent = r || "—";
-  popEl.querySelector(".kj-w").textContent = w || "—";
-  popEl.querySelector(".kj-m").textContent = m || "—";
+  popEl.querySelector(".kj-big-r").textContent = target.dataset.r || "";
+  const wordEl = popEl.querySelector(".kj-word");
+  if(w){
+    wordEl.style.display = "";
+    popEl.querySelector(".kj-word-w").textContent = w;
+    popEl.querySelector(".kj-word-r").textContent = wordReading ? "（"+wordReading+"）" : "";
+    popEl.querySelector(".kj-word-m").textContent = m || "";
+  } else { wordEl.style.display = "none"; }
+  const list = popEl.querySelector(".kj-kj-list");
+  list.innerHTML = "";
+  const seen = new Set();
+  for(const seg of segs){
+    const chars = seg[0], reading = seg[1];
+    const kanjiInSeg = [...chars].filter(c=>isKanji(c));
+    if(!kanjiInSeg.length) continue;
+    const perR = kanjiInSeg.length===1 ? reading : "";  // jukujukun (multi-kanji segment) → no per-kanji reading
+    for(const ch of kanjiInSeg){
+      if(seen.has(ch)) continue; seen.add(ch);
+      const row = document.createElement("div"); row.className="kj-kj-row";
+      row.innerHTML = '<span class="kj-kj-ch">'+esc(ch)+'</span><span class="kj-kj-r">'+esc(perR||"—")+'</span><span class="kj-kj-m">'+esc(KM[ch]||"—")+'</span>';
+      list.appendChild(row);
+    }
+  }
+  if(!list.children.length && KM[k]){  // standalone kanji with no word context
+    const row = document.createElement("div"); row.className="kj-kj-row";
+    row.innerHTML = '<span class="kj-kj-ch">'+esc(k)+'</span><span class="kj-kj-r">'+esc(target.dataset.r||"—")+'</span><span class="kj-kj-m">'+esc(KM[k])+'</span>';
+    list.appendChild(row);
+  }
   popEl.classList.add("show");
   const rect = target.getBoundingClientRect();
   const pw = popEl.offsetWidth, ph = popEl.offsetHeight;
