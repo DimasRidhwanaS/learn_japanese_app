@@ -1,7 +1,7 @@
 /* Azershal Japanese — service worker: offline cache + notifications + auto-update. */
-const CACHE = "azjp-v8";
+const CACHE = "azjp-v9";
 const ASSETS = ["./","./index.html","./app.js","./data.js","./furigana.js","./kanji_meanings.js","./styles.css","./manifest.webmanifest",
-  "icons/icon-192.png","icons/icon-512.png","icons/icon-mask-512.png"];
+  "icons/icon-192.png","icons/icon-512.png","icons/icon-mask-512.png","icons/apple-180.png","icons/favicon-32.png"];
 
 self.addEventListener("install", e=>{
   self.skipWaiting();                       // new SW activates immediately, no tab-restart needed

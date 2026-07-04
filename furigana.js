@@ -766,6 +766,14 @@ const WORD_MEANING = {};
   (D.KEIGO_TRIO||[]).forEach(c=>{ add(c.reg, c.en); c.son.split("/").forEach(x=>add(x,c.en)); c.ken.split("/").forEach(x=>add(x,c.en)); });
   (D.WORD_POOL||[]).forEach(c=>add(c.jp, c.en));
   Object.values(D.PHRASES||{}).forEach(arr=>arr.forEach(p=>add(p.jp, p.en)));
+  // UI-chrome words rendered via autoFuri() that aren't in the decks above
+  const CHROME = {
+    基礎:"foundation", 核心:"core", 応用:"application",
+    敬語:"honorific language", 尊敬:"respect (sonkeigo)", 謙譲:"humble (kenjougo)",
+    丁寧:"polite (teineigo)", 丁寧語:"polite language", 美化語:"beautification language",
+    二重敬語:"double honorific", 敬具:"sincerely (closing)", 拝啓:"dear sir/madam (opening)"
+  };
+  Object.entries(CHROME).forEach(([k,v])=>add(k,v));
 })();
 
 // render a known word: each kanji becomes a clickable span; kana stays plain
