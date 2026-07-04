@@ -10,12 +10,13 @@ function load(){
 }
 function fresh(){
   return { cards:{}, studied:[], weekDone:{}, quizScores:[], newPerDay:10, createdAt:todayISO(),
-    theme:null, furi:true, reminders:{enabled:false,time:"09:00"} };
+    theme:null, furi:true, reminders:{enabled:false,time:"09:00"}, customWords:[] };
 }
 function migrate(s){
   if(!s.cards)s.cards={}; if(!s.studied)s.studied=[]; if(!s.weekDone)s.weekDone={}; if(!s.quizScores)s.quizScores=[];
   if(!s.newPerDay)s.newPerDay=10; if(s.furi===undefined)s.furi=true; if(!s.theme)s.theme=null;
   if(!s.reminders)s.reminders={enabled:false,time:"09:00"};
+  if(!s.customWords)s.customWords=[];
   return s;
 }
 function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed:",e.message); } }
@@ -141,6 +142,7 @@ function allCards(){
   D.VOCAB.forEach((c,i)=>list.push({id:"v:"+i,type:"vocab",...c}));
   D.KEIGO_TRIO.forEach((c,i)=>list.push({id:"k:"+i,type:"keigo",...c}));
   ["email","meeting","phone","meishi"].forEach(b=>D.PHRASES[b].forEach((c,i)=>list.push({id:"p:"+b+":"+i,type:"phrase",bank:b,...c})));
+  (state.customWords||[]).forEach((c,i)=>list.push({id:"u:"+i,type:"vocab",cat:"my",jp:c.jp,reading:c.reading||"",en:c.en||"",ex:c.ex||"",ex_en:c.ex_en||"",jlpt:"MY"}));
   return list;
 }
 
@@ -190,6 +192,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   ["furiToggleSide","furiToggleTop"].forEach(id=>{ const e=document.getElementById(id); if(e) e.addEventListener("click",toggleFuri); });
   document.querySelectorAll(".nav-btn").forEach(b=>b.addEventListener("click",()=>go(b.dataset.route)));
   initPWA();
+  // register user-added words with the furigana engine so their kanji are clickable too
+  (state.customWords||[]).forEach(w=>{ if(window.addFuriWord && w.jp && w.reading) window.addFuriWord(w.jp, w.reading, w.en); });
   const h=location.hash.replace("#",""); if(h&&routes[h]) go(h); else go("dashboard");
   window.addEventListener("hashchange",()=>{ const h=location.hash.replace("#",""); if(h&&routes[h]) go(h); });
 });
@@ -404,7 +408,7 @@ function answer(id,q){ grade(id,q); reviewIdx++; showReviewCard(); refreshBadges
 // ---------- VIEW: FLASHCARDS ----------
 let fcFilter="all", fcQueue=[], fcIdx=0;
 routes.flashcards = ()=>{
-  const cats=["all","meeting","office","finance","email","general","keigo","phrase"];
+  const cats=["all","meeting","office","finance","email","general","my","keigo","phrase"];
   return `<h1>🎴 Flashcards</h1>
   <p class="sub">Browse & learn. ${allCards().length} cards total. Use Review tab for SRS-due cards.</p>
   <div class="filter-row" id="fcFilters">${cats.map(c=>`<div class="chip ${fcFilter===c?'active':''}" data-cat="${c}">${c}</div>`).join("")}</div>
@@ -442,7 +446,7 @@ function cardHTML(c, isReview){
   if(c.type==="vocab"){
     return `<div class="flash" id="card-${c.id.replace(/[^a-z0-9]/gi,'-')}">
       <div class="flash-q" onclick="flip(this.parentElement)"><div class="flash-jp">${autoFuri(c.jp)}</div></div>
-      <div class="flash-a"><div class="flash-meaning">${c.en}</div><div class="flash-reading">${c.reading}</div><div class="flash-example"><b>${autoFuri(c.ex)}</b><br>${c.ex_en}</div></div>
+      <div class="flash-a"><div class="flash-meaning">${c.en}</div><div class="flash-reading">${c.reading}</div>${c.ex?`<div class="flash-example"><b>${autoFuri(c.ex)}</b><br>${c.ex_en||""}</div>`:""}</div>
       <div class="flash-meta">${meta}</div>
     </div>${gradeRow(c.id,isReview)}`;
   }
@@ -694,6 +698,7 @@ function exportDeck(kind){
   if(kind==="vocab"||kind==="all") D.VOCAB.forEach(c=>rows.push(`${c.jp}\t${c.reading}  ${c.en}\t${c.ex}（${c.ex_en}）`));
   if(kind==="keigo"||kind==="all") D.KEIGO_TRIO.forEach(c=>rows.push(`${c.reg}（${c.en}）\t尊敬: ${c.son} ｜ 謙譲: ${c.ken}\t${c.note}`));
   if(kind==="phrases"||kind==="all") ["email","meeting","phone","meishi"].forEach(b=>D.PHRASES[b].forEach(p=>rows.push(`${p.jp}\t${p.en}\t${b}`)));
+  if(kind==="my"||kind==="all") (state.customWords||[]).forEach(c=>rows.push(`${c.jp}\t${c.reading||""}  ${c.en||""}\t${c.ex||""}（${c.ex_en||""}）`));
   const tsv=rows.join("\n");
   const dl=(href,filename)=>{ const a=document.createElement("a"); a.href=href; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); };
   if(typeof URL!=="undefined" && URL.createObjectURL){
@@ -703,6 +708,70 @@ function exportDeck(kind){
     dl("data:text/plain;charset=utf-8,"+encodeURIComponent(tsv), `azjp_${kind}.txt`);
   }
 }
+
+// ---------- VIEW: MY WORDS (user-added) ----------
+routes.mywords = ()=>{
+  const cw = state.customWords||[];
+  return `
+  <h1>➕ My Words</h1>
+  <p class="sub">Add your own words. They appear in <b>Cards</b>, <b>Review</b>, and <b>Anki Export</b> — and their kanji are clickable just like the built-in deck.</p>
+  <div class="card">
+    <h3>Add a word</h3>
+    <div class="grid cols-2" style="gap:10px">
+      <input id="mwJp" placeholder="日本語 (e.g. 会議)" oninput="autoFillReading()">
+      <input id="mwReading" placeholder="reading (e.g. かいぎ)">
+      <input id="mwEn" placeholder="meaning (e.g. meeting)">
+      <input id="mwEx" placeholder="example (optional)">
+      <input id="mwExEn" placeholder="example translation (optional)" style="grid-column:1 / span 2">
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="addMyWord()">Add word</button>
+      <button class="btn sec sm" onclick="loadMyList()">Load list</button>
+    </div>
+    <div class="hint">Tip: paste a tab-separated list (Japanese [Tab] reading [Tab] meaning [Tab] example [Tab] example-en) — one word per line — into the ${autoFuri("日本語")} field then tap <b>Load list</b>.</div>
+  </div>
+  <h2>Your words (${cw.length})</h2>
+  ${cw.length ? `<div class="card" style="padding:0;overflow:hidden">
+    <table><tr><th>日本語</th><th>Reading</th><th>Meaning</th><th></th></tr>
+    ${cw.map((w,i)=>`<tr><td class="jp">${autoFuri(w.jp)}</td><td>${w.reading||""}</td><td>${w.en||""}</td><td><button class="btn sec sm" onclick="deleteMyWord(${i})">✕</button></td></tr>`).join("")}
+    </table></div>` : `<div class="empty">No words yet. Add one above.</div>`}
+  <div class="btn-row">${cw.length?`<button class="btn sec sm" onclick="exportDeck('my')">📦 Export my words (Anki TSV)</button>`:""}</div>
+  `;
+};
+function autoFillReading(){ /* placeholder: could auto-derive; left manual for accuracy */ }
+function addMyWord(){
+  const jp=(document.getElementById("mwJp").value||"").trim();
+  const reading=(document.getElementById("mwReading").value||"").trim();
+  const en=(document.getElementById("mwEn").value||"").trim();
+  const ex=(document.getElementById("mwEx").value||"").trim();
+  const ex_en=(document.getElementById("mwExEn").value||"").trim();
+  if(!jp){ alert("Enter the Japanese word."); return; }
+  if(!state.customWords) state.customWords=[];
+  state.customWords.push({jp,reading,en,ex,ex_en});
+  if(window.addFuriWord && reading) window.addFuriWord(jp, reading, en);
+  save(); render("mywords"); refreshBadges();
+}
+function deleteMyWord(i){
+  if(!confirm("Delete this word?")) return;
+  state.customWords.splice(i,1); save(); render("mywords"); refreshBadges();
+}
+function loadMyList(){
+  const raw=(document.getElementById("mwJp").value||"").trim();
+  if(!raw){ alert("Paste tab/line-separated words into the 日本語 field first."); return; }
+  const lines=raw.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  let added=0;
+  for(const l of lines){
+    const parts=l.split(/\t/).map(x=>x.trim());
+    if(!parts[0]) continue;
+    const w={jp:parts[0], reading:parts[1]||"", en:parts[2]||"", ex:parts[3]||"", ex_en:parts[4]||""};
+    state.customWords.push(w);
+    if(window.addFuriWord && w.reading) window.addFuriWord(w.jp, w.reading, w.en);
+    added++;
+  }
+  save(); render("mywords"); refreshBadges();
+  alert("Added "+added+" word"+(added===1?"":"s")+".");
+}
+function hook_mywords(){ /* nothing dynamic */ }
 
 // ---------- VIEW: PROGRESS ----------
 routes.progress = ()=>{

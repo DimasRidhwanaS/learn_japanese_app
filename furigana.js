@@ -752,7 +752,7 @@ const WORD_FURI = {
   "見させる":[["見","み"],["させる",""]]
 };
 
-const FURI_KEYS = Object.keys(WORD_FURI).filter(k => WORD_FURI[k].length > 0).sort((a,b)=>b.length-a.length);
+let FURI_KEYS = Object.keys(WORD_FURI).filter(k => WORD_FURI[k].length > 0).sort((a,b)=>b.length-a.length);
 
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function isKanji(ch){ return /[㐀-鿿＀-￯]/.test(ch); }
@@ -895,4 +895,11 @@ window.addEventListener("resize", hidePop);
 
 window.WORD_FURI = WORD_FURI;
 window.FURI_KEYS = FURI_KEYS;
+// Register a user-added word at runtime (whole-word segment; per-kanji meanings come from KANJI_MEANING)
+window.addFuriWord = function(jp, reading, meaning){
+  if(!jp || !reading) return;
+  if(!WORD_FURI[jp]) WORD_FURI[jp] = [[jp, reading]];
+  if(meaning && !WORD_MEANING[jp]) WORD_MEANING[jp] = meaning;
+  FURI_KEYS = Object.keys(WORD_FURI).filter(k => WORD_FURI[k].length > 0).sort((a,b)=>b.length-a.length);
+};
 })();
