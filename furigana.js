@@ -896,7 +896,7 @@ document.addEventListener("click", e=>{
   const kj = e.target.closest && e.target.closest(".kj");
   if(kj){ e.preventDefault(); e.stopPropagation(); showPop(kj); return; }
   if(popEl && !popEl.contains(e.target)) hidePop();
-});
+}, true);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") hidePop(); });
 window.addEventListener("scroll", hidePop, true);
 window.addEventListener("resize", hidePop);
