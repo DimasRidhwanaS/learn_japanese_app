@@ -10,13 +10,17 @@ function load(){
 }
 function fresh(){
   return { cards:{}, studied:[], weekDone:{}, quizScores:[], newPerDay:10, createdAt:todayISO(),
-    theme:null, furi:true, reminders:{enabled:false,time:"09:00"}, customWords:[] };
+    theme:null, furi:true, reminders:{enabled:false,time:"09:00"}, customWords:[],
+    daily:{date:todayISO(), completed:{}, bestStreak:0, endlessBest:0} };
 }
 function migrate(s){
   if(!s.cards)s.cards={}; if(!s.studied)s.studied=[]; if(!s.weekDone)s.weekDone={}; if(!s.quizScores)s.quizScores=[];
   if(!s.newPerDay)s.newPerDay=10; if(s.furi===undefined)s.furi=true; if(!s.theme)s.theme=null;
   if(!s.reminders)s.reminders={enabled:false,time:"09:00"};
   if(!s.customWords)s.customWords=[];
+  if(!s.daily)s.daily={date:todayISO(), completed:{}, bestStreak:0, endlessBest:0};
+  if(!s.daily.completed)s.daily.completed={};
+  if(s.daily.date!==todayISO()){ s.daily.date=todayISO(); s.daily.completed={}; }
   return s;
 }
 function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed:",e.message); } }
@@ -369,6 +373,274 @@ routes.dashboard = ()=>{
 function currentWeek(){ const start=dayIndex(state.createdAt); const elapsed=Math.floor((todayIndex()-start)/7)+1; return Math.min(26,Math.max(1,elapsed)); }
 function weekProgress(w){ return state.weekDone[w]?100:0; }
 function wordOfDay(){ return D.WORD_POOL[todayIndex()%D.WORD_POOL.length]; }
+
+// ============================================================
+// VIEW: DAILY (flagship) — at-a-glance status + endless practice
+// Self-contained: own <style>, own helpers. Additive only.
+// ============================================================
+function ensureDaily(){
+  if(!state.daily) state.daily={date:todayISO(), completed:{}, bestStreak:0, endlessBest:0};
+  if(!state.daily.completed) state.daily.completed={};
+  if(state.daily.date !== todayISO()){ state.daily.date=todayISO(); state.daily.completed={}; save(); }
+}
+function todayGrammar(){ return D.GRAMMAR[todayIndex()%D.GRAMMAR.length]; }
+function dailyTasks(){
+  const wod=wordOfDay(); const g=todayGrammar();
+  const ws = wod.en.length>22 ? wod.en.slice(0,20)+"…" : wod.en;
+  return [
+    {id:"review",     icon:"🔁",  label:"Review",        status: dueCount()+" due",      route:"review"},
+    {id:"flashcards", icon:"🎴",  label:"New cards",      status:"10 new",                 route:"flashcards"},
+    {id:"word",       icon:"⭐",  label:"Word of day",    status: ws,                       route:"word"},
+    {id:"grammar",    icon:"📐",  label:"Grammar point", status: g.l+" · "+g.t.slice(0,18), route:"grammar"},
+    {id:"keigo",      icon:"🙇",  label:"Keigo drill",   status: D.KEIGO_TRIO.length+" trios", route:"keigo"},
+    {id:"quiz",       icon:"✏️",  label:"Quiz",           status:"10 Qs",                 route:"quiz"},
+    {id:"shadow",     icon:"🗣️", label:"Shadowing",      status:"10 min aloud",           route:null},
+  ];
+}
+function toggleDailyTask(id, route){
+  ensureDaily();
+  if(route){
+    state.daily.completed[id]=1; save();
+    go(route);
+  } else {
+    if(state.daily.completed[id]) delete state.daily.completed[id];
+    else state.daily.completed[id]=1;
+    save(); render("daily");
+  }
+}
+function hook_daily(){
+  // animate the ring from empty → target
+  const fg = document.querySelector(".dly-ring-fg");
+  if(fg){
+    const r = +fg.getAttribute("r");
+    const circ = 2*Math.PI*r;
+    const target = +fg.getAttribute("data-offset");
+    fg.style.strokeDashoffset = circ;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ fg.style.strokeDashoffset = target; }));
+  }
+}
+routes.daily = function(){
+  ensureDaily();
+  const streak = currentStreak();
+  const completed = state.daily.completed || {};
+  const tasks = dailyTasks();
+  const doneCount = tasks.filter(t=>completed[t.id]).length;
+  const total = tasks.length;
+  const pct = total ? doneCount/total : 0;
+  const ringPct = Math.round(pct*100);
+  const best = state.daily.endlessBest || 0;
+  const r = 52, circ = 2*Math.PI*r;
+  const offset = circ * (1 - pct);
+  const d = new Date();
+  const dow = ["日","月","火","水","木","金","土"][d.getDay()];
+  const dateStr = (d.getMonth()+1)+"月"+d.getDate()+"日 "+dow+"曜";
+  const allDone = doneCount === total;
+  const greet = allDone ? "今日は完了！ 🎉 All done for today." : (doneCount===0 ? "Let's begin today's practice 👇" : "Keep going — almost there!");
+  const style = `
+<style>
+.dly-wrap{max-width:820px;margin:0 auto}
+.dly-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.dly-date{font-size:15px;font-weight:700;color:var(--text-soft);line-height:1.3}
+.dly-date small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:2px}
+.dly-streak{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border-soft);padding:8px 14px;border-radius:var(--radius-pill);font-weight:700;font-size:14px;color:var(--text)}
+.dly-streak .flame{font-size:19px;filter:drop-shadow(0 0 6px rgba(240,104,92,.55))}
+.dly-hero{display:grid;grid-template-columns:140px 1fr;gap:24px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow-card);margin-bottom:18px}
+.dly-ring-wrap{position:relative;width:140px;height:140px;justify-self:center}
+.dly-ring{width:140px;height:140px;transform:rotate(-90deg)}
+.dly-ring-bg{fill:none;stroke:var(--panel3);stroke-width:11}
+.dly-ring-fg{fill:none;stroke:url(#dlyG);stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset 1.1s cubic-bezier(.2,.7,.2,1);filter:drop-shadow(0 0 6px rgba(240,104,92,.35))}
+.dly-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
+.dly-ring-num{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.dly-ring-lbl{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.dly-hero-text h2{margin:0 0 6px;font-size:21px;letter-spacing:-.015em}
+.dly-hero-text h2::before{display:none}
+.dly-hero-text .sub{margin:0;font-size:14px;line-height:1.55}
+.dly-hero-text .greet{margin-top:10px;font-size:13.5px;color:var(--accent-strong);font-weight:650;line-height:1.5}
+.dly-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+@media(min-width:680px){.dly-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:980px){.dly-grid{grid-template-columns:repeat(4,1fr)}}
+.dly-tile{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:15px 14px;min-height:96px;cursor:pointer;display:flex;flex-direction:column;gap:5px;transition:transform .12s,box-shadow .18s,border-color .18s;box-shadow:var(--shadow-sm);overflow:hidden;font-family:inherit;text-align:left;color:inherit;border-width:1px}
+.dly-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-card)}
+.dly-tile:active{transform:scale(.97)}
+.dly-tile-ic{font-size:23px;line-height:1.2}
+.dly-tile-lbl{font-size:14px;font-weight:700;color:var(--text);margin-top:2px;line-height:1.25}
+.dly-tile-stat{font-size:11.5px;color:var(--muted);font-weight:500;line-height:1.4;margin-top:auto}
+.dly-tile .chk{position:absolute;top:11px;right:11px;width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:transparent;transition:.22s;background:var(--panel2)}
+.dly-tile.done{border-color:var(--good);background:linear-gradient(135deg,rgba(52,211,153,.10),transparent 70%),var(--panel)}
+.dly-tile.done .chk{background:var(--good);border-color:var(--good);color:#fff}
+.dly-tile.done .chk::after{content:"✓"}
+.dly-cta{width:100%;background:var(--grad);color:#fff;border:none;padding:18px;border-radius:var(--radius-lg);font-size:17px;font-weight:750;letter-spacing:-.01em;cursor:pointer;box-shadow:0 8px 24px -8px rgba(240,104,92,.6),0 1px 0 rgba(255,255,255,.2) inset;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;animation:dlyPulse 2.4s ease-in-out infinite}
+.dly-cta:hover{filter:brightness(1.06)}
+.dly-cta:active{transform:translateY(1px) scale(.99)}
+@keyframes dlyPulse{0%,100%{box-shadow:0 8px 24px -8px rgba(240,104,92,.6),0 1px 0 rgba(255,255,255,.2) inset}50%{box-shadow:0 12px 32px -6px rgba(240,104,92,.85),0 1px 0 rgba(255,255,255,.2) inset}}
+.dly-cta-sub{text-align:center;color:var(--muted);font-size:12px;margin-top:10px;font-weight:500}
+.dly-endless{display:none;max-width:680px;margin:0 auto}
+.dly-sess-bar{position:sticky;top:8px;z-index:5;display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-pill);padding:8px 12px;box-shadow:var(--shadow-card);margin-bottom:16px}
+.dly-chip{font-size:13px;font-weight:700;color:var(--text-soft);padding:4px 11px;border-radius:var(--radius-pill);background:var(--panel2);font-variant-numeric:tabular-nums}
+.dly-chip.dly-combo{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.dly-end{margin-left:auto;background:var(--panel2);border:1px solid var(--border);color:var(--text-soft);padding:6px 14px;border-radius:var(--radius-pill);font-weight:700;cursor:pointer;font-size:13px;font-family:inherit;min-height:36px}
+.dly-end:hover{border-color:var(--bad);color:var(--bad)}
+.dly-q-wrap{transition:opacity .25s,transform .25s}
+.dly-q-card{background:radial-gradient(440px 220px at 50% 28%,var(--accent-soft),transparent 72%),var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:40px 24px;text-align:center;box-shadow:var(--shadow-card)}
+.dly-q-label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:18px}
+.dly-q-jp{font-size:42px;font-weight:800;line-height:1.25;letter-spacing:-.01em}
+.dly-q-reading{color:var(--muted);font-size:16px;margin-top:12px;font-weight:500}
+.dly-opts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px}
+@media(max-width:480px){.dly-opts{grid-template-columns:1fr}}
+.dly-opt{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:16px 14px;border-radius:14px;font-size:15px;font-weight:650;cursor:pointer;min-height:54px;font-family:inherit;transition:transform .1s,border-color .18s,background .18s,box-shadow .18s;text-align:left;display:flex;align-items:center;line-height:1.35}
+.dly-opt:hover:not(:disabled){border-color:var(--accent);color:var(--accent-strong);background:var(--accent-soft)}
+.dly-opt:active:not(:disabled){transform:scale(.98)}
+.dly-opt:disabled{cursor:default}
+.dly-opt.dly-correct{background:var(--good);border-color:var(--good);color:#fff;box-shadow:0 6px 18px -6px rgba(52,211,153,.55)}
+.dly-opt.dly-wrong{background:var(--bad);border-color:var(--bad);color:#fff;animation:dlyShake .42s}
+@keyframes dlyShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.dly-q-wrap.dly-good{animation:dlyFlashGood .5s}
+@keyframes dlyFlashGood{0%{box-shadow:0 0 0 0 rgba(52,211,153,0)}50%{box-shadow:0 0 0 6px rgba(52,211,153,.28)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.dly-q-wrap.dly-out{opacity:0;transform:translateY(-8px)}
+@media(max-width:680px){
+  .dly-hero{grid-template-columns:120px 1fr;gap:18px;padding:18px}
+  .dly-ring-wrap,.dly-ring{width:120px;height:120px}
+  .dly-ring-num{font-size:26px}
+  .dly-q-jp{font-size:34px}
+  .dly-q-card{padding:32px 18px}
+}
+@media(prefers-reduced-motion:reduce){
+  .dly-cta{animation:none}
+  .dly-ring-fg{transition:none}
+  .dly-opt.dly-wrong{animation:none}
+  .dly-q-wrap.dly-good{animation:none}
+  .dly-q-wrap{transition:none}
+}
+</style>`;
+  const ringHTML = `
+  <div class="dly-ring-wrap">
+    <svg class="dly-ring" viewBox="0 0 120 120" aria-hidden="true">
+      <defs><linearGradient id="dlyG" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent2)"/>
+      </linearGradient></defs>
+      <circle class="dly-ring-bg" cx="60" cy="60" r="52"/>
+      <circle class="dly-ring-fg" cx="60" cy="60" r="52" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${circ.toFixed(2)}" data-offset="${offset.toFixed(2)}"/>
+    </svg>
+    <div class="dly-ring-center">
+      <div class="dly-ring-num">${doneCount}/${total}</div>
+      <div class="dly-ring-lbl">${ringPct}% done</div>
+    </div>
+  </div>`;
+  const gridHTML = tasks.map(t=>{
+    const done = !!completed[t.id];
+    return `<button class="dly-tile ${done?'done':''}" onclick="toggleDailyTask('${t.id}',${t.route?`'${t.route}'`:'null'})">
+      <span class="chk"></span>
+      <div class="dly-tile-ic">${t.icon}</div>
+      <div class="dly-tile-lbl">${t.label}</div>
+      <div class="dly-tile-stat">${esc(t.status)}</div>
+    </button>`;
+  }).join("");
+  return `${style}
+  <div class="dly-wrap" id="dlyDaily">
+    <div class="dly-header">
+      <div class="dly-date">${dateStr}<small>Daily practice</small></div>
+      <div class="dly-streak"><span class="flame">🔥</span> ${streak} day${streak===1?"":"s"}</div>
+    </div>
+    <div class="dly-hero">
+      ${ringHTML}
+      <div class="dly-hero-text">
+        <h2>${autoFuri("今日の練習")}</h2>
+        <p class="sub">${doneCount} of ${total} tasks complete · Best combo: <b>${best}</b></p>
+        <div class="greet">${greet}</div>
+      </div>
+    </div>
+    <div class="dly-grid">${gridHTML}</div>
+    <button class="dly-cta" onclick="startEndless()">▶ Start daily practice</button>
+    <div class="dly-cta-sub">Endless mixed mode — review, vocab, keigo & phrases. Keep going as long as you like.</div>
+  </div>
+  <div class="dly-endless" id="dlyEndless"></div>`;
+};
+
+// ---- Endless practice (inline, limitless) ----
+var dlySession = null;
+function startEndless(){
+  ensureDaily();
+  dlySession = {score:0, total:0, combo:0, bestCombo:0, current:null, opts:[], correct:"", correctIdx:-1};
+  const dailyEl = document.getElementById("dlyDaily");
+  const endEl = document.getElementById("dlyEndless");
+  if(dailyEl) dailyEl.style.display="none";
+  if(endEl) endEl.style.display="";
+  nextEndlessQuestion();
+}
+function nextEndlessQuestion(){
+  if(!dlySession) return;
+  const cards = allCards();
+  if(!cards.length){ endSession(); return; }
+  // avoid repeating the last card if pool > 1
+  let c, tries=0;
+  do { c = cards[Math.floor(Math.random()*cards.length)]; tries++; }
+  while(dlySession.lastId && c.id===dlySession.lastId && cards.length>1 && tries<8);
+  dlySession.lastId = c.id;
+  const correct = c.en || "";
+  const jp = c.type==="keigo" ? c.reg : c.jp;
+  const reading = c.reading || c.regR || "";
+  const allEn = [...new Set(cards.map(x=>x.en).filter(Boolean))];
+  const distractors = shuffle(allEn.filter(e=>e!==correct)).slice(0,3);
+  // if not enough distractors, pad with placeholder so we always have 4
+  while(distractors.length<3){ distractors.push("—"); }
+  const opts = shuffle([correct, ...distractors]);
+  dlySession.current = c;
+  dlySession.opts = opts;
+  dlySession.correct = correct;
+  dlySession.correctIdx = opts.indexOf(correct);
+  renderEndlessQuestion(jp, reading, opts);
+}
+function renderEndlessQuestion(jp, reading, opts){
+  if(!dlySession) return;
+  const elapsed = dlySession.qStart ? Math.round((Date.now()-dlySession.qStart)/1000) : 0;
+  document.getElementById("dlyEndless").innerHTML = `
+    <div class="dly-sess-bar">
+      <div class="dly-chip">✓ ${dlySession.score}/${dlySession.total}</div>
+      <div class="dly-chip dly-combo">🔥 ${dlySession.combo}×</div>
+      <div class="dly-chip">Best ${state.daily.endlessBest||0}</div>
+      <button class="dly-end" onclick="endSession()">End session</button>
+    </div>
+    <div class="dly-q-wrap" id="dlyQWrap">
+      <div class="dly-q-card">
+        <div class="dly-q-label">What does this mean?</div>
+        <div class="dly-q-jp">${autoFuri(jp)}</div>
+        <div class="dly-q-reading">${state.furi ? "" : reading}</div>
+      </div>
+      <div class="dly-opts">
+        ${opts.map((o,i)=>`<button class="dly-opt" data-i="${i}" onclick="answerEndless(${i})">${esc(o)}</button>`).join("")}
+      </div>
+    </div>`;
+  dlySession.qStart = Date.now();
+}
+function answerEndless(i){
+  if(!dlySession) return;
+  const ok = i === dlySession.correctIdx;
+  dlySession.total++;
+  const btns = document.querySelectorAll(".dly-opt");
+  btns.forEach(b=>b.disabled=true);
+  const wrap = document.getElementById("dlyQWrap");
+  if(ok){
+    dlySession.score++;
+    dlySession.combo++;
+    if(dlySession.combo > dlySession.bestCombo) dlySession.bestCombo = dlySession.combo;
+    if(dlySession.correctIdx>=0 && btns[dlySession.correctIdx]) btns[dlySession.correctIdx].classList.add("dly-correct");
+    if(wrap) wrap.classList.add("dly-good");
+  } else {
+    dlySession.combo = 0;
+    if(dlySession.correctIdx>=0 && btns[dlySession.correctIdx]) btns[dlySession.correctIdx].classList.add("dly-correct");
+    if(btns[i]) btns[i].classList.add("dly-wrong");
+  }
+  if(dlySession.bestCombo > (state.daily.endlessBest||0)){ state.daily.endlessBest = dlySession.bestCombo; save(); }
+  setTimeout(()=>{ if(dlySession){ const w=document.getElementById("dlyQWrap"); if(w) w.classList.add("dly-out"); } }, ok ? 550 : 1050);
+  setTimeout(()=>{ if(dlySession) nextEndlessQuestion(); }, ok ? 700 : 1200);
+}
+function endSession(){
+  if(dlySession && dlySession.bestCombo > (state.daily.endlessBest||0)){ state.daily.endlessBest = dlySession.bestCombo; save(); }
+  dlySession = null;
+  const endEl = document.getElementById("dlyEndless");
+  if(endEl) endEl.style.display="none";
+  render("daily");
+}
 
 // ---------- VIEW: CURRICULUM ----------
 routes.curriculum = ()=>`
