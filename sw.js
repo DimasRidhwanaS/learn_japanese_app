@@ -1,5 +1,5 @@
 /* Azershal Japanese — service worker: offline cache + notifications + auto-update. */
-const CACHE = "azjp-v5";
+const CACHE = "azjp-v7";
 const ASSETS = ["./","./index.html","./app.js","./data.js","./furigana.js","./styles.css","./manifest.webmanifest",
   "icons/icon-192.png","icons/icon-512.png","icons/icon-mask-512.png"];
 

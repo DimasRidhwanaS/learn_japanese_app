@@ -689,22 +689,97 @@ const WORD_FURI = {
   "伺っても":[["伺","うかが"],["っても",""]],
   "間に合いますか":[["間","ま"],["に",""],["合","あ"],["いますか",""]],
   "少しが":[["少","すこ"],["しが",""]],
-  "もう少し":[["もう",""],["少","すこ"],["し",""]]
+  "もう少し":[["もう",""],["少","すこ"],["し",""]],
+  "思う":[["思","おも"],["う",""]],
+  "と思います":[["と",""],["思","おも"],["います",""]],
+  "存じます":[["存","ぞん"],["じます",""]],
+  "敬語":[["敬","けい"],["語","ご"]],
+  "尊敬":[["尊","そん"],["敬","けい"]],
+  "謙譲":[["謙","けん"],["譲","じょう"]],
+  "丁寧":[["丁","てい"],["寧","ねい"]],
+  "丁寧語":[["丁","てい"],["寧","ねい"],["語","ご"]],
+  "美化語":[["美","び"],["化","か"],["語","ご"]],
+  "二重敬語":[["二","に"],["重","じゅう"],["敬","けい"],["語","ご"]],
+  "敬具":[["敬","けい"],["具","ぐ"]],
+  "基礎":[["基","き"],["礎","そ"]],
+  "核心":[["核","かく"],["心","しん"]],
+  "応用":[["応","おう"],["用","よう"]],
+  "基づいて":[["基","もと"],["づいて",""]],
+  "二つ":[["二","ふた"],["つ",""]],
+  "二人":[["二","ふた"],["人","り"]],
+  "伺う":[["伺","うかが"],["う",""]],
+  "伺います":[["伺","うかが"],["います",""]],
+  "字":[["字","じ"]],
+  "得る":[["得","え"],["る",""]],
+  "教えて":[["教","おし"],["えて",""]],
+  "教えてください":[["教","おし"],["えて",""],["ください",""]],
+  "三時":[["三","さん"],["時","じ"]],
+  "九時":[["九","きゅう"],["時","じ"]],
+  "時間":[["時","じ"],["間","かん"]],
+  "時代":[["時","じ"],["代","だい"]],
+  "時":[["時","とき"]],
+  "結構です":[["結","けっ"],["構","こう"],["です",""]],
+  "採用":[["採","さい"],["用","よう"]],
+  "ご用件":[["ご",""],["用","よう"],["件","けん"]],
+  "結びます":[["結","むす"],["びます",""]],
+  "結ばれます":[["結","むす"],["ばれます",""]],
+  "契約締結":[["契","けい"],["約","やく"],["締","てい"],["結","けつ"]],
+  "契約書":[["契","けい"],["約","やく"],["書","しょ"]],
+  "意見":[["意","い"],["見","けん"]],
+  "拝見":[["拝","はい"],["見","けん"]],
+  "見える":[["見","み"],["える",""]],
+  "英語":[["英","えい"],["語","ご"]],
+  "日本語":[["日","に"],["本","ほん"],["語","ご"]],
+  "単語":[["単","たん"],["語","ご"]],
+  "貴社":[["貴","き"],["社","しゃ"]],
+  "ご飯":[["ご",""],["飯","はん"]],
+  "お茶":[["お",""],["茶","ちゃ"]],
+  "書く":[["書","か"],["く",""]],
+  "書いて":[["書","か"],["いて",""]],
+  "書いた":[["書","か"],["いた",""]],
+  "教科書":[["教","きょう"],["科","か"],["書","しょ"]],
+  "伺い":[["伺","うかが"],["い",""]],
+  "お伺い":[["お",""],["伺","うかが"],["い",""]],
+  "見る":[["見","み"],["る",""]],
+  "見て":[["見","み"],["て",""]],
+  "見た":[["見","み"],["た",""]],
+  "見ます":[["見","み"],["ます",""]],
+  "見えた":[["見","み"],["えた",""]],
+  "見え":[["見","み"],["え",""]],
+  "書かれる":[["書","か"],["かれる",""]],
+  "書かせる":[["書","か"],["かせる",""]],
+  "見られる":[["見","み"],["られる",""]],
+  "見させる":[["見","み"],["させる",""]]
 };
 
 const FURI_KEYS = Object.keys(WORD_FURI).filter(k => WORD_FURI[k].length > 0).sort((a,b)=>b.length-a.length);
 
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-
 function isKanji(ch){ return /[㐀-鿿＀-￯]/.test(ch); }
 
+// word -> English meaning (for the popover)
+const WORD_MEANING = {};
+(function(){
+  const D = window.DATA; if(!D) return;
+  const add=(k,v)=>{ if(k && v && WORD_MEANING[k]==null) WORD_MEANING[k]=v; };
+  (D.VOCAB||[]).forEach(c=>add(c.jp, c.en));
+  (D.KEIGO_TRIO||[]).forEach(c=>{ add(c.reg, c.en); c.son.split("/").forEach(x=>add(x,c.en)); c.ken.split("/").forEach(x=>add(x,c.en)); });
+  (D.WORD_POOL||[]).forEach(c=>add(c.jp, c.en));
+  Object.values(D.PHRASES||{}).forEach(arr=>arr.forEach(p=>add(p.jp, p.en)));
+})();
+
+// render a known word: each kanji becomes a clickable span; kana stays plain
 function renderWord(word){
-  const segs = WORD_FURI[word];
-  if(!segs || !segs.length) return null;
+  const segs = WORD_FURI[word]; if(!segs || !segs.length) return null;
+  const meaning = WORD_MEANING[word] || "";
   let s = "";
   for(const seg of segs){
     const c = seg[0], r = seg[1];
-    s += r ? `<ruby>${esc(c)}<rt>${esc(r)}</rt></ruby>` : esc(c);
+    for(const ch of c){
+      if(isKanji(ch)){
+        s += `<span class="kj" data-k="${esc(ch)}" data-r="${esc(r||"")}" data-w="${esc(word)}" data-m="${esc(meaning)}">${esc(ch)}</span>`;
+      } else { s += esc(ch); }
+    }
   }
   return s;
 }
@@ -712,26 +787,76 @@ function renderWord(word){
 window.furiRender = function(text){
   if(text==null) return "";
   text = String(text);
-  if(!window.__furiOn) return esc(text);
-  let out = "";
-  let i = 0;
+  if(window.__furiOn === false) return esc(text); // toggle: off = plain, not clickable
+  let out = "", i = 0;
   while(i < text.length){
     let hit = null;
-    for(const w of FURI_KEYS){
-      if(w.length && text.startsWith(w,i)){ hit = w; break; }
-    }
-    if(hit){
-      const r = renderWord(hit);
-      if(r){ out += r; i += hit.length; continue; }
-    }
-    // single unknown kanji: leave plain (no ruby); kana/punct plain
-    out += esc(text[i]);
+    for(const w of FURI_KEYS){ if(w.length && text.startsWith(w,i)){ hit = w; break; } }
+    if(hit){ const r = renderWord(hit); if(r){ out += r; i += hit.length; continue; } }
+    const ch = text[i];
+    // even unmatched kanji must be clickable (per user: EVERY kanji clickable)
+    if(isKanji(ch)){ out += `<span class="kj" data-k="${esc(ch)}" data-r="" data-w="" data-m="">${esc(ch)}</span>`; }
+    else { out += esc(ch); }
     i++;
   }
   return out;
 };
 
-// expose map for debugging/testing if needed
+// ---------- Popover (tap/click a kanji → furigana + meaning) ----------
+let popEl = null;
+function ensurePop(){
+  if(popEl) return popEl;
+  if(!document.getElementById("kjStyle")){
+    const st = document.createElement("style"); st.id = "kjStyle";
+    st.textContent = `
+      .kj{cursor:pointer;border-bottom:1px dotted rgba(240,104,92,.45);border-radius:2px;transition:background .15s}
+      .kj:hover{background:rgba(240,104,92,.16)}
+      .kj:active{background:rgba(240,104,92,.28)}
+      #kjPop{position:fixed;z-index:9999;background:var(--panel,#181d27);color:var(--text,#eceef3);border:1px solid var(--border,#2c333f);border-radius:14px;padding:14px 16px 12px;box-shadow:0 14px 44px rgba(0,0,0,.55);max-width:min(80vw,280px);font-size:14px;display:none;line-height:1.45}
+      #kjPop.show{display:block;animation:kjIn .12s ease}
+      @keyframes kjIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+      #kjPop .kj-big{font-size:36px;font-weight:800;line-height:1.1;margin:2px 0 10px}
+      #kjPop .kj-row{display:flex;gap:10px;margin:5px 0;align-items:baseline}
+      #kjPop .kj-lbl{color:var(--muted,#8a94a6);font-size:10px;text-transform:uppercase;letter-spacing:.07em;min-width:48px;font-weight:700}
+      #kjPop .kj-val{font-weight:600;word-break:break-word}
+      #kjPop .kj-close{position:absolute;top:4px;right:8px;cursor:pointer;color:var(--muted,#8a94a6);font-size:18px;line-height:1;padding:6px}
+      @media(hover:none){ .kj{border-bottom:1px solid rgba(240,104,92,.3)} }
+    `;
+    document.head.appendChild(st);
+  }
+  popEl = document.createElement("div"); popEl.id = "kjPop";
+  popEl.innerHTML = '<span class="kj-close">×</span><div class="kj-big"></div><div class="kj-row"><span class="kj-lbl">読み</span><span class="kj-val kj-r"></span></div><div class="kj-row"><span class="kj-lbl">言葉</span><span class="kj-val kj-w"></span></div><div class="kj-row"><span class="kj-lbl">意味</span><span class="kj-val kj-m"></span></div>';
+  document.body.appendChild(popEl);
+  popEl.querySelector(".kj-close").addEventListener("click", hidePop);
+  return popEl;
+}
+function hidePop(){ if(popEl) popEl.classList.remove("show"); }
+function showPop(target){
+  ensurePop();
+  const k = target.dataset.k || "", r = target.dataset.r || "", w = target.dataset.w || "", m = target.dataset.m || "";
+  popEl.querySelector(".kj-big").textContent = k;
+  popEl.querySelector(".kj-r").textContent = r || "—";
+  popEl.querySelector(".kj-w").textContent = w || "—";
+  popEl.querySelector(".kj-m").textContent = m || "—";
+  popEl.classList.add("show");
+  const rect = target.getBoundingClientRect();
+  const pw = popEl.offsetWidth, ph = popEl.offsetHeight;
+  let left = rect.left + rect.width/2 - pw/2;
+  let top = rect.bottom + 8;
+  if(top + ph > window.innerHeight - 8) top = rect.top - ph - 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+  top = Math.max(8, top);
+  popEl.style.left = left + "px"; popEl.style.top = top + "px";
+}
+document.addEventListener("click", e=>{
+  const kj = e.target.closest && e.target.closest(".kj");
+  if(kj){ e.preventDefault(); e.stopPropagation(); showPop(kj); return; }
+  if(popEl && !popEl.contains(e.target)) hidePop();
+});
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") hidePop(); });
+window.addEventListener("scroll", hidePop, true);
+window.addEventListener("resize", hidePop);
+
 window.WORD_FURI = WORD_FURI;
 window.FURI_KEYS = FURI_KEYS;
 })();

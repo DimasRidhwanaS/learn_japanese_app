@@ -131,8 +131,8 @@ function updateToggleBtns(){
   const dark = state.theme!=="light";
   document.querySelectorAll("#themeToggleSide,#themeToggleTop").forEach(b=>b.textContent = dark ? "🌙" : "☀️");
   const side=document.getElementById("themeToggleSide"); if(side) side.textContent = dark ? "🌙 Dark" : "☀️ Light";
-  document.querySelectorAll("#furiToggleTop").forEach(b=>{ b.textContent="あ"; b.style.opacity = state.furi ? "1" : ".45"; });
-  const fs=document.getElementById("furiToggleSide"); if(fs) fs.textContent = state.furi ? "あ Furigana ✓" : "あ Furigana";
+  document.querySelectorAll("#furiToggleTop").forEach(b=>{ b.textContent="漢"; b.style.opacity = state.furi ? "1" : ".45"; });
+  const fs=document.getElementById("furiToggleSide"); if(fs) fs.textContent = state.furi ? "漢字タップ ✓" : "漢字タップ";
 }
 
 // ---------- DECKS ----------
@@ -333,10 +333,10 @@ routes.dashboard = ()=>{
   </div>
   <h2>This week — Week ${cur.w}: ${cur.title}</h2>
   <div class="card">
-    <div class="sub" style="margin:0 0 10px">Phase: <b>${autoFuri(cur.phase)}</b> · Goal: ${cur.goal}</div>
+    <div class="sub" style="margin:0 0 10px">Phase: <b>${autoFuri(cur.phase)}</b> · Goal: ${autoFuri(cur.goal)}</div>
     <div class="progress-bar"><div style="width:${weekProgress(cur.w)}%"></div></div>
     <ul style="margin:14px 0 0 18px;font-size:14px;line-height:1.9">
-      ${cur.tasks.map(t=>`<li>${t}</li>`).join("")}
+      ${cur.tasks.map(t=>`<li>${autoFuri(t)}</li>`).join("")}
     </ul>
     <div class="btn-row">
       <button class="btn" onclick="go('review')">Review ${due} due →</button>
@@ -348,7 +348,7 @@ routes.dashboard = ()=>{
     <div style="font-size:34px;font-weight:800;line-height:1.3">${autoFuri(wod.jp)}</div>
     <div style="font-size:16px;color:var(--muted);margin-top:6px">${state.furi?"":wod.reading}</div>
     <div style="font-size:19px;margin-top:14px;font-weight:600">${wod.en}</div>
-    <div class="hint" style="font-size:14px">💡 ${wod.why}</div>
+    <div class="hint" style="font-size:14px">💡 ${autoFuri(wod.why)}</div>
   </div>
   <h2>🎯 Daily routine (≈60–90 min)</h2>
   <div class="card" style="padding:0;overflow:hidden">
@@ -375,8 +375,8 @@ routes.curriculum = ()=>`
     const done=state.weekDone[c.w];
     return `<div class="week ${done?'done':''}" id="wk-${c.w}">
       <div class="wk-title"><span class="chk" onclick="toggleWeek(${c.w})">${done?'✅':'⬜'}</span> Week ${c.w}: ${c.title} <span class="ph">${autoFuri(c.phase)}</span></div>
-      <div class="wk-body"><b>Goal:</b> ${c.goal}</div>
-      <div class="wk-body"><b>Tasks:</b> ${c.tasks.join(" · ")}</div>
+      <div class="wk-body"><b>Goal:</b> ${autoFuri(c.goal)}</div>
+      <div class="wk-body"><b>Tasks:</b> ${autoFuri(c.tasks.join(" · "))}</div>
     </div>`;
   }).join("")}
 `;
@@ -484,12 +484,12 @@ routes.word = ()=>{
     <div style="font-size:46px;font-weight:800;line-height:1.3">${autoFuri(wod.jp)}</div>
     <div class="flash-reading" style="font-size:18px">${wod.reading}</div>
     <div style="font-size:20px;margin:14px 0;font-weight:600">${wod.en}</div>
-    <div class="hint" style="font-size:14px">💡 ${wod.why}</div>
+    <div class="hint" style="font-size:14px">💡 ${autoFuri(wod.why)}</div>
   </div>
   <h2>Past words</h2>
   <div class="card" style="padding:0;overflow:hidden">
     <table><tr><th>Word</th><th>Reading</th><th>Meaning</th><th>Why it matters</th></tr>
-    ${D.WORD_POOL.map((w,idx)=>`<tr><td class="jp">${idx===i?'<b>'+autoFuri(w.jp)+'</b>':autoFuri(w.jp)}</td><td>${w.reading}</td><td>${w.en}</td><td style="color:var(--muted);font-size:12px">${w.why}</td></tr>`).join("")}
+    ${D.WORD_POOL.map((w,idx)=>`<tr><td class="jp">${idx===i?'<b>'+autoFuri(w.jp)+'</b>':autoFuri(w.jp)}</td><td>${w.reading}</td><td>${w.en}</td><td style="color:var(--muted);font-size:12px">${autoFuri(w.why)}</td></tr>`).join("")}
     </table>
   </div>`;
 };
@@ -558,11 +558,11 @@ function grammarItem(g,i){
     <div class="g-head" onclick="toggleGrammar(${i})">
       <span class="tag tag-${g.l.toLowerCase()}">${g.l}</span>
       <span class="g-pat">${autoFuri(g.t)}</span>
-      <span class="g-en">${g.en}</span>
+      <span class="g-en">${autoFuri(g.en)}</span>
       <span class="g-chev">▾</span>
     </div>
     <div class="g-body">
-      <div class="g-breakdown">💡 ${g.breakdown||""}</div>
+      <div class="g-breakdown">💡 ${autoFuri(g.breakdown||"")}</div>
       <div class="g-ex-label">Main example</div>
       <div class="g-ex"><span class="jp">${autoFuri(g.ex)}</span><span class="en">${g.ex_en}</span></div>
       ${more}
@@ -578,25 +578,25 @@ routes.keigo = ()=>`
   <h2>3 Layers + Rules</h2>
   <div class="card" style="padding:0;overflow:hidden">
     <table><tr><th>Type</th><th>Use</th><th>How</th><th>Example</th><th>English</th></tr>
-    ${D.KEIGO_RULES.map(r=>`<tr><td><b>${autoFuri(r.t)}</b></td><td style="font-size:13px">${r.use}</td><td style="font-size:12px;color:var(--muted)">${r.how}</td><td class="jp" style="font-size:14px">${autoFuri(r.ex)}</td><td style="font-size:12px;color:var(--muted)">${r.ex_en}</td></tr>`).join("")}
+    ${D.KEIGO_RULES.map(r=>`<tr><td><b>${autoFuri(r.t)}</b></td><td style="font-size:13px">${autoFuri(r.use)}</td><td style="font-size:12px;color:var(--muted)">${autoFuri(r.how)}</td><td class="jp" style="font-size:14px">${autoFuri(r.ex)}</td><td style="font-size:12px;color:var(--muted)">${r.ex_en}</td></tr>`).join("")}
     </table>
   </div>
   <h2>8 Core Verb Trios (+4 bonus)</h2>
   <p class="sub">Memorize these 12. They cover ~80% of workplace honorific moments.</p>
   <div class="card" style="padding:0;overflow:hidden">
-    <table><tr><th>Regular</th><th>尊敬 (respect)</th><th>謙譲 (humble)</th><th>Meaning</th><th>Note</th></tr>
+    <table><tr><th>Regular</th><th>${autoFuri("尊敬")} (respect)</th><th>${autoFuri("謙譲")} (humble)</th><th>Meaning</th><th>Note</th></tr>
     ${D.KEIGO_TRIO.map(k=>`<tr>
       <td class="jp">${autoFuri(k.reg)}<br><span class="flash-reading" style="font-size:11px">${k.regR}</span></td>
       <td class="jp" style="color:var(--accent2)">${autoFuri(k.son)}<br><span class="flash-reading" style="font-size:11px">${k.sonR}</span></td>
       <td class="jp" style="color:var(--easy)">${autoFuri(k.ken)}<br><span class="flash-reading" style="font-size:11px">${k.kenR}</span></td>
-      <td>${k.en}</td><td style="font-size:12px;color:var(--muted)">${k.note}</td>
+      <td>${k.en}</td><td style="font-size:12px;color:var(--muted)">${autoFuri(k.note)}</td>
     </tr>`).join("")}
     </table>
   </div>
   <h2>⚠️ Common Keigo Mistakes</h2>
   <div class="card" style="padding:0;overflow:hidden">
     <table><tr><th>❌ Wrong</th><th>✅ Correct</th><th>Why</th></tr>
-    ${D.KEIGO_MISTAKES.map(m=>`<tr><td class="jp" style="color:var(--bad)">${autoFuri(m.bad)}</td><td class="jp" style="color:var(--good)">${autoFuri(m.good)}</td><td style="font-size:12px">${m.why}</td></tr>`).join("")}
+    ${D.KEIGO_MISTAKES.map(m=>`<tr><td class="jp" style="color:var(--bad)">${autoFuri(m.bad)}</td><td class="jp" style="color:var(--good)">${autoFuri(m.good)}</td><td style="font-size:12px">${autoFuri(m.why)}</td></tr>`).join("")}
     </table>
   </div>
   <h2>📚 Phrase Banks</h2>
