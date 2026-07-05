@@ -1,6 +1,6 @@
 /* Azershal Japanese — service worker: offline cache + notifications + auto-update. */
-const CACHE = "azjp-v14";
-const ASSETS = ["./","./index.html","./app-v13.js","./data-v13.js","./furigana-v13.js","./kanji-meanings-v13.js","./styles-v13.css","./manifest-v13.webmanifest",
+const CACHE = "azjp-v15";
+const ASSETS = ["./","./index.html","./app-v14.js","./data-v14.js","./furigana-v14.js","./kanji-meanings-v14.js","./styles-v14.css","./manifest-v14.webmanifest",
   "icons/icon-192.png","icons/icon-512.png","icons/icon-mask-512.png","icons/apple-180.png","icons/favicon-32.png"];
 
 self.addEventListener("install", e=>{
